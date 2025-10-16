@@ -88,10 +88,11 @@ def define_model(shift_max_percent, shift_max_hours):
             sum(model.Flow[l, t] for l in model.L if model.LineFrom[l] == b)
             - sum(model.Flow[l, t] for l in model.L if model.LineTo[l] == b)
         )
-
-        shift_in = sum(model.shift[b, (k, t)] for k in model.T if k != t and abs(k - t) < shift_max_hours)
-        shift_out = sum(model.shift[b, (t, k)] for k in model.T if k != t and abs(k - t) < shift_max_hours)
-        net_shift = shift_in - shift_out
+        net_shift = 0
+        if shift_max_percent != 0 and shift_max_hours != 0:
+            shift_in = sum(model.shift[b, (k, t)] for k in model.T if k != t and abs(k - t) <= shift_max_hours)
+            shift_out = sum(model.shift[b, (t, k)] for k in model.T if k != t and abs(k - t) <= shift_max_hours)
+            net_shift = shift_in - shift_out
         # return gen_sum + gen_renewables + discharge - charge + line_flow_sum + model.Slack[b, t] == model.Demand[b, t]
         return gen_sum + gen_renewables + discharge - charge + line_flow_sum == model.Demand[b, t] + net_shift
 
@@ -99,14 +100,17 @@ def define_model(shift_max_percent, shift_max_hours):
 
     # Demand shift constraints
     def demand_shift_limit_rule(model, b, t):
-        return sum(model.shift[b, (t, k)] for k in model.T if k != t and abs(k - t) < shift_max_hours) <= shift_max_percent * model.Demand[b, t]
+        if shift_max_percent == 0 or shift_max_hours == 0:
+            return Constraint.Feasible
+        else:
+            return sum(model.shift[b, (t, k)] for k in model.T if k != t and abs(k - t) <= shift_max_hours) <= shift_max_percent * model.Demand[b, t]
     model.DemandShiftLimit = Constraint(model.B, model.T, rule=demand_shift_limit_rule)
 
-    def demand_shift_hours_rule(model, b, t1, t2):
-        if abs(t1 - t2) > shift_max_hours:
-            return model.shift[b, (t1, t2)] == 0
-        return Constraint.Skip
-    model.DemandShiftHours = Constraint(model.B, model.tpairs, rule=demand_shift_hours_rule)
+    # def demand_shift_hours_rule(model, b, t1, t2):
+    #     if abs(t1 - t2) > shift_max_hours:
+    #         return model.shift[b, (t1, t2)] == 0
+    #     return Constraint.Skip
+    # model.DemandShiftHours = Constraint(model.B, model.tpairs, rule=demand_shift_hours_rule)
 
     # def net_shift_conservation_rule(model, b):
     #     return sum(model.shift[b, t1, t2] - model.shift[b, t2, t1] for t1 in model.T for t2 in model.T if t1 != t2) == 0

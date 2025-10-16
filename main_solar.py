@@ -6,7 +6,7 @@ from plot_results_solar import plot_results
 solve_unit_commitment(
     'unit_commitment_data_solar.dat',
     'unit_commitment_results.json',
-    shift_max_percent=.1,
+    shift_max_percent=.2,
     shift_max_hours=2
 )
 
